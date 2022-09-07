@@ -10,7 +10,7 @@ class Container:
         # Loads authentication and cluster information
         config.load_kube_config('~/.kube/config')
         ctx = config.list_kube_config_contexts()[1]
-        
+
         self.cluster = ctx['context']['cluster'].split('_')[::-1][0]
 
         # Instantiate Kubernete's class
@@ -57,7 +57,7 @@ class Container:
 
                             if response.find(self.search_string) > -1:
                                 if self.output_format == "list":
-                                    settings.namespace_list.append(f"{pod.metadata.namespace}")
+                                    settings.namespace_list.append(f"{pod.metadata.name} - {pod.metadata.namespace}")
 
                                 if self.output_format == "table":
                                     settings.namespace_table.add_row(
@@ -86,54 +86,56 @@ class Container:
             "[bold green]reading secrets data..", spinner="bouncingBar"):
 
             for secret in secrets.items:
-                    try:
-                        if secret.data is not None:
-                            for key, value in secret.data.items():
+                try:
+                    if secret.data is not None:
+                        for key, value in secret.data.items():
 
-                                if key != '':
-                                    key = key.lower()
-                                else:
-                                    key = "EMPTY_STRING"
+                            if key != '':
+                                key = key.lower()
+                            else:
+                                key = "EMPTY_STRING"
 
-                                if value != '':
-                                    value = base64.b64decode(value).decode("utf-8").lower()
-                                else:
-                                    value = "EMPTY_STRING"
+                            if value != '':
+                                value = base64.b64decode(value).decode("utf-8").lower()
+                            else:
+                                value = "EMPTY_STRING"
 
-                                if (key.find(self.search_string) > -1
-                                    or value.find(self.search_string) > -1):
-                                    if self.output_format == "list":
-                                        vl_secret_l = f'{secret.metadata.name} - '\
-                                                      f'{secret.metadata.namespace} - '\
-                                                      f'{secret.type}'
-                                        if vl_secret_l not in settings.secret_list:
-                                            settings.secret_list.append(vl_secret_l)
+                            if (key.find(self.search_string) > -1
+                                or value.find(self.search_string) > -1):
+                                if self.output_format == "list":
+                                    vl_secret_l = f'{secret.metadata.name} - '\
+                                                    f'{secret.metadata.namespace} - '\
+                                                    f'{secret.type}'
+                                    if vl_secret_l not in settings.secret_list:
+                                        settings.secret_list.append(vl_secret_l)
 
-                                    if self.output_format == "table":
-                                        vl_secret_t = [secret.metadata.name, secret.metadata.namespace, secret.type, ":white_check_mark:"]
-                                        if vl_secret_t not in settings.secret_prerow:
-                                            settings.secret_prerow.append(vl_secret_t)
+                                if self.output_format == "table":
+                                    vl_secret_t = [secret.metadata.name, secret.metadata.namespace, \
+                                        secret.type, ":white_check_mark:"]
+                                    if vl_secret_t not in settings.secret_prerow:
+                                        settings.secret_prerow.append(vl_secret_t)
 
-                                else:
-                                    if self.output_format == "table":
-                                        vl_secret_t = [secret.metadata.name, secret.metadata.namespace, secret.type, ":x:"]
-                                        if vl_secret_t not in settings.secret_prerow:
-                                            settings.secret_prerow.append(vl_secret_t)
+                            else:
+                                if self.output_format == "table":
+                                    vl_secret_t = [secret.metadata.name, secret.metadata.namespace, \
+                                        secret.type, ":x:"]
+                                    if vl_secret_t not in settings.secret_prerow:
+                                        settings.secret_prerow.append(vl_secret_t)
 
-                    except ApiException:
-                        settings.errorsApi_list.append(
-                            '{} - {} - {}'.format(
-                                secret.metadata.name,
-                                secret.metadata.namespace,
-                                secret.type
-                            )
+                except ApiException:
+                    settings.errorsApi_list.append(
+                        '{} - {} - {}'.format(
+                            secret.metadata.name,
+                            secret.metadata.namespace,
+                            secret.type
                         )
+                    )
 
-                    except UnicodeDecodeError:
-                        settings.errorsDecode_list.append(
-                            '{} - {} - {}'.format(
-                                secret.metadata.name,
-                                secret.metadata.namespace,
-                                secret.type
-                            )
+                except UnicodeDecodeError:
+                    settings.errorsDecode_list.append(
+                        '{} - {} - {}'.format(
+                            secret.metadata.name,
+                            secret.metadata.namespace,
+                            secret.type
                         )
+                    )

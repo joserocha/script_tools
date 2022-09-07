@@ -58,22 +58,20 @@ if __name__ == '__main__':
     if getattr(params, "output") == "list":
 
         if len(settings.namespace_list) > 0:
+            settings.console.print("")
             settings.log.info("the following pods / namespaces contains the searched string:")
             for n in settings.namespace_list:
                 settings.console.print(f'[yellow]{"": <10} {n}')
-            settings.console.print("")
         else:
             settings.log.info("no pod / namespace contains the searched string")
-            settings.console.print("")
 
         if len(settings.secret_list) > 0:
+            settings.console.print("")
             settings.log.info("the following secrets / namespaces contains the searched string:")
             for d in settings.secret_list:
                 settings.console.print(f'[yellow]{"": <10} {d}')
-            settings.console.print("")
         else:
             settings.log.info("no secret / namespace contains the searched string")
-            settings.console.print("")
 
     ####
     ## Output as table (print all namespaces)
@@ -94,18 +92,18 @@ if __name__ == '__main__':
     ## Output any Api raised error
     ####
     if len(settings.errorsApi_list) > 0:
+        settings.console.print("")
         settings.log.info("the following namespaces raised Api exceptions")
         for e in settings.errorsApi_list:
             settings.console.print(f'[red]{"": <10} {e}')
-        settings.console.print("")
 
     ####
     ## Output any Decode raised error
     ####
     if len(settings.errorsDecode_list) > 0:
+        settings.console.print("")
         settings.log.info("the following namespaces raised Decoded exceptions")
         for e in settings.errorsDecode_list:
             settings.console.print(f'[red]{"": <10} {e}')
-        settings.console.print("")
 
     settings.console.print(Panel.fit("[yellow bold].:: THE END ::."))

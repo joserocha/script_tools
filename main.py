@@ -52,13 +52,15 @@ if __name__ == '__main__':
     # Call method to decode secrets and search for a specific string
     kube.run_for_all_secrets()
 
+    # Create an empty line
+    settings.console.print("")
+
     ####
     ## Output as list (print only matched namespaces)
     ####
     if getattr(params, "output") == "list":
 
         if len(settings.namespace_list) > 0:
-            settings.console.print("")
             settings.log.info("the following pods / namespaces contains the searched string:")
             for n in settings.namespace_list:
                 settings.console.print(f'[yellow]{"": <10} {n}')

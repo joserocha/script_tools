@@ -1,111 +1,162 @@
+"""
+    main.py
+"""
+import os
 import argparse
-import settings
+from base64 import b64decode as b64
+from typing import Optional
+import pandas as pd
 from rich.padding import Padding
 from rich.panel import Panel
-from container import Container
+from rich.console import Console
+from rich import box
+from rich.table import Table
+from rich.align import Align
+from modules import cluster
 
 
-# Create the argument parser
-args = argparse.ArgumentParser(
-    usage="%(prog)s find output"
-)
+def df_to_table(
+    pandas_dataframe: pd.DataFrame,
+    rich_table: Table,
+    show_index: bool = False,
+    index_name: Optional[str] = None,
+) -> Table:
+    """Convert a pandas.DataFrame obj into a rich.Table obj.
+    Args:
+        pandas_dataframe (DataFrame): A Pandas DataFrame to be converted to a rich Table.
+        rich_table (Table): A rich Table that should be populated by the DataFrame values.
+        show_index (bool): Add a column with a row count to the table. Defaults to True.
+        index_name (str, optional): The column name to give to the index column.
+        Defaults to None, showing no value.
+    Returns:
+        Table: The rich Table instance passed, populated with the DataFrame values."""
 
-# Add the arguments
-args.add_argument(
-    "find",
-    metavar="find",
-    help="string to find",
-    type=str
-)
-args.add_argument(
-    "output",
-    metavar="output",
-    choices=["table", "list"],
-    help='specify the type of output',
-    type=str
-)
+    if show_index:
+        index_name = str(index_name) if index_name else ""
+        rich_table.add_column(index_name)
 
-# Parse the args
+    for column in pandas_dataframe.columns:
+        rich_table.add_column(Align(str(column), align='center'))
+
+    for index, value_list in enumerate(pandas_dataframe.values.tolist()):
+        row = [str(index)] if show_index else []
+        row += [str(x) for x in value_list]
+        rich_table.add_row(*row)
+
+    return rich_table
+
+
+# Add command line arguments
+args = argparse.ArgumentParser(usage='%(prog)s find output')
+
+args.add_argument('find',
+                  metavar='find',
+                  help='string to find',
+                  type=str)
+args.add_argument('output',
+                  metavar='output',
+                  choices=['simple', 'detailed'],
+                  help='specify the type of output',
+                  type=str)
+
 params = args.parse_args()
-# params = "teste"
 
 
 if __name__ == '__main__':
-    # Instantiate Container Class
-    kube = Container(getattr(params, "find"), getattr(params, "output"))
+    find_string = getattr(params, "find").lower()
+    output_format = getattr(params, "output").lower()
 
-    # Mount the header
-    settings.console.print(
-        Panel.fit("[yellow bold].:: SEARCH FOR STRING IN KUBERNETES CLUSTER ::.")
-    )
-    settings.console.print(
-        Padding(
-            f"----"\
-            f"\nLooking for: {getattr(params, 'find')}"\
-            f"\nCluster name: {kube.cluster}"\
-            f"\n----", (0, 0, 1, 0))
-    )
+    if os.name == 'posix':
+        os.system('clear')
+    else:
+        os.system('cls')
 
-    # Call method to execute env command in running pods and search for a specific string
-    kube.run_for_all_running_pods()
+    data = []
+    cluster.load_config()
+    cluster_name = cluster.get_cluster_name()
 
-    # Call method to decode secrets and search for a specific string
-    kube.run_for_all_secrets()
+    c = Console()
 
-    # Create an empty line
-    settings.console.print("")
+    c.print(Panel.fit("[yellow bold].:: SEARCH FOR STRING IN KUBERNETES CLUSTER ::."))
+    c.print(Padding(f"----" \
+                    f"\nLooking for: {find_string}" \
+                    f"\nCluster name: {cluster_name}" \
+                    f"\n----", (0, 0, 1, 0)))
 
-    ####
-    ## Output as list (print only matched namespaces)
-    ####
-    if getattr(params, "output") == "list":
+    namespaces = cluster.get_all_namespaces()
+    for namespace in namespaces.items:
 
-        if len(settings.namespace_list) > 0:
-            settings.log.info("the following pods / namespaces contains the searched string:")
-            for n in settings.namespace_list:
-                settings.console.print(f'[yellow]{"": <10} {n}')
-        else:
-            settings.log.info("no pod / namespace contains the searched string")
+        if namespace.metadata.name == 'accounts':
 
-        if len(settings.secret_list) > 0:
-            settings.console.print("")
-            settings.log.info("the following secrets / namespaces contains the searched string:")
-            for d in settings.secret_list:
-                settings.console.print(f'[yellow]{"": <10} {d}')
-        else:
-            settings.log.info("no secret / namespace contains the searched string")
+            namespaced_pods = cluster.get_pods_by_namespace(namespace.metadata.name)
+            for pod in namespaced_pods.items:
+                if pod.status.phase == 'Running':
+                    response = cluster.exec_command_pod(pod.metadata.name,
+                                                        namespace.metadata.name)
+                    if response is None:
+                        data.append([namespace.metadata.name.lower(),
+                                    'Running Pod',
+                                    f'{pod.metadata.name.lower()} -> \
+                                        Problema em executar o comando env',
+                                    'Erro'])
+                        continue
 
-    ####
-    ## Output as table (print all namespaces)
-    ####
-    # if getattr(params, "output") == "table":
-    #     settings.log.info("the result in all namespaces:")
-    #     settings.console.print("")
-    #     settings.console.print(f'{settings.namespace_table}')
-    #     settings.console.print("")
+                    lines = response.split('\n')
+                    for l in lines:
+                        if l.find(find_string) > -1:
+                            data.append([namespace.metadata.name.lower(),
+                                        'Pod',
+                                        f'name: {pod.metadata.name.lower()}',
+                                        f'{l}'])
 
-    #     settings.log.info("the result in all secrets:")
-    #     for row in zip(*settings.secret_prerow):
-    #         settings.secret_table.add_row(*row)
-    #     settings.console.print(settings.secret_table)
-    #     settings.console.print("")
+                    break
+                else:
+                    continue
 
-    ####
-    ## Output any Api raised error
-    ####
-    if len(settings.errorsApi_list) > 0:
-        settings.console.print("")
-        settings.log.info("the following namespaces raised Api exceptions")
-        for e in settings.errorsApi_list:
-            settings.console.print(f'[red]{"": <10} {e}')
+            namespaced_secrets = cluster.get_secret_by_namespace(namespace.metadata.name)
+            for secret in namespaced_secrets.items:
+                if secret.data is not None:
 
-    ####
-    ## Output any Decode raised error
-    ####
-    if len(settings.errorsDecode_list) > 0:
-        settings.console.print("")
-        settings.log.info("the following namespaces raised Decoded exceptions")
-        for e in settings.errorsDecode_list:
-            settings.console.print(f'[red]{"": <10} {e}')
+                    for key, value in secret.data.items():
+                        try:
+                            k = key.lower() if key != '' else 'empty_key'
+                            v = b64(value).decode('utf-8').lower() if value != '' else 'empty_value'
 
-    settings.console.print(Panel.fit("[yellow bold].:: THE END ::."))
+                            if (k.find(find_string) > -1 or v.find(find_string) > -1):
+                                data.append([namespace.metadata.name.lower(),
+                                            'Secret',
+                                            f'type: {secret.type.lower()}, \
+                                              name: {secret.metadata.name.lower()}',
+                                            f'{k}={v}'])
+
+                        except UnicodeDecodeError as ex:
+                            data.append([namespace.metadata.name.lower(),
+                                        'Secret',
+                                        '',
+                                        f'{key.lower()} -> Deu erro de decode'])
+
+    pd.set_option('display.max_rows', None)
+    df = pd.DataFrame(data,
+                      columns=['Namespace',
+                               'Kubernete\'s Object',
+                               'Resource Scanned',
+                               'Details'])
+
+    # Initiate a Table instance to be modified
+    table = Table(show_header=True, header_style="bold yellow")
+
+    # Modify the table instance to have the data from the DataFrame
+    if output_format == 'simple':
+        simple_df = df[['Namespace', 'Kubernete\'s Object', 'Resource Scanned']]
+        table = df_to_table(simple_df.drop_duplicates(), table)
+    elif output_format == 'detailed':
+        table = df_to_table(df, table)
+
+    # Update the style of the table
+    table.row_styles = ["none", "bright_green"]
+    table.box = box.ROUNDED
+
+    c.print(table)
+
+    c.print(Padding("----", (1, 0, 0, 0)))
+    c.print(Panel.fit("[yellow bold].:: THE END ::."))

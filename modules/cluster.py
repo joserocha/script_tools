@@ -27,7 +27,11 @@ def get_all_namespaces():
 def get_pods_by_namespace(namespace):
     """get_pods_by_namespace"""
     api = client.CoreV1Api()
-    return api.list_namespaced_pod(namespace=namespace)
+    try:
+        return api.list_namespaced_pod(namespace=namespace)
+
+    except ApiException:
+        return None
 
 
 def exec_command_pod(pod_name, namespace_name):
@@ -50,4 +54,8 @@ def exec_command_pod(pod_name, namespace_name):
 def get_secret_by_namespace(namespace):
     """get_secret_by_namespace"""
     api = client.CoreV1Api()
-    return api.list_namespaced_secret(namespace=namespace)
+    try:
+        return api.list_namespaced_secret(namespace=namespace)
+
+    except ApiException:
+        return None

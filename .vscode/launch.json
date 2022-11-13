@@ -11,7 +11,7 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "args": ["172.20.0.3", "simple"]
+            "args": ["172.20.0.3", "simple", "--verbose"]
         }
     ]
 }

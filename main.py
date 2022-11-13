@@ -17,10 +17,10 @@ from modules.table import df_to_table
 # Add command line arguments
 args = argparse.ArgumentParser()
 
-args.add_argument('find',
+args.add_argument('--find',
                   help='string to find',
                   type=str)
-args.add_argument('output',
+args.add_argument('--output',
                   choices=['simple', 'detailed'],
                   help='specify the type of output',
                   type=str)
